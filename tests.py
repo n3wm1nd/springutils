@@ -7,9 +7,10 @@ import sys
 
 
 
-def updatebuildable(mod,startingset):
+def updatebuildable(mod,startingset,units=None):
   lua = mod._lua
-  units = mod.getunits()
+  if units==None:
+    units = mod.getunits()
   
   buildable = set()
   tocheck = set(startingset)
@@ -54,27 +55,29 @@ class TestUnit(unittest.TestCase):
     cls.mod =  spring.Mod(sys.argv[1])
     cls.units =cls.mod.getunits()
     cls.weapons = cls.mod.getweapons()
-    cls.buildable = updatebuildable(cls.mod,set(('armcom','corcom','tllcom')))
+    cls.buildable = updatebuildable(cls.mod,set(('armcom','corcom','tllcom')),cls.units)
     cls.movedefs = cls.mod.movedefs()
  
   def test_mandatory(self):
-    self.assertIn("category", self.unit.__dict__)
-    self.assertIn("objectname", self.unit.__dict__)
-    self.assertIn("side", self.unit.__dict__)
-    self.assertIn("unitname", self.unit.__dict__)
-    self.assertIn("buildtime", self.unit.__dict__)
-    self.assertIn("description", self.unit.__dict__)
-    self.assertIn("maxdamage", self.unit.__dict__)
-    self.assertIn("name", self.unit.__dict__)
-    self.assertIn("buildcostenergy", self.unit.__dict__)
-    self.assertIn("buildcostmetal", self.unit.__dict__)
-    self.assertIn("footprintx", self.unit.__dict__)
-    #self.assertIn("maxwaterdepth", self.unit.__dict__)
-    #self.assertIn("maxslope", self.unit.__dict__)
+    self.assertIn("category", self.unit.__dict__.keys())
+    self.assertIn("objectname", self.unit.__dict__.keys())
+    self.assertIn("side", self.unit.__dict__.keys())
+    self.assertIn("unitname", self.unit.__dict__.keys())
+    self.assertIn("buildtime", self.unit.__dict__.keys())
+    self.assertIn("description", self.unit.__dict__.keys())
+    self.assertIn("maxdamage", self.unit.__dict__.keys())
+    self.assertIn("name", self.unit.__dict__.keys())
+    self.assertIn("buildcostenergy", self.unit.__dict__.keys())
+    self.assertIn("buildcostmetal", self.unit.__dict__.keys())
+    self.assertIn("footprintx", self.unit.__dict__.keys())
+    #self.assertIn("idleautoheal", self.unit.__dict__.keys())
+    #self.assertIn("idletime", self.unit.__dict__.keys())
+    #self.assertIn("maxwaterdepth", self.unit.__dict__.keys())
+    #self.assertIn("maxslope", self.unit.__dict__.keys())
     cats = self.unit.category.split(" ")
     #if not "VTOL" in cats and not "CTRL_V" in cats:
-    #  self.assertIn("corpse", self.unit.__dict__)
-    #self.assertIn("movementclass", self.unit.__dict__)
+    #  self.assertIn("corpse", self.unit.__dict__.keys())
+    #self.assertIn("movementclass", self.unit.__dict__.keys())
 
   def test_weapon(self):
     #curweapon=1
@@ -93,6 +96,17 @@ class TestUnit(unittest.TestCase):
       pass
       self.assertEqual(cat,cat.upper())
 
+  def test_textcase(self):
+    self.assertEqual(self.unit.unitname.lower(),self.unit.unitname)
+
+  def test_script(self):
+    try:
+      scriptfile = os.path.join(self.mod.dir,"scripts",self.unit.script)
+    except AttributeError:
+      scriptfile = os.path.join(self.mod.dir,"scripts",self.unit.unitname.lower()+".cob")
+
+
+    self.assertTrue(os.path.exists(scriptfile),"script '%s' does not exist" % (scriptfile) )
 
   def test_moveclass(self):
     #self.assertIn("movementclass",list(self.unit.keys()))
@@ -186,29 +200,38 @@ class AllUnits(unittest.TestSuite):
       self.addTest(t)
         #print "add "+testname+" for "+unitname
 
-class ModelsTests(unittest.TestCase):
-  def __init__(self,mod):
+class TestModel(unittest.TestCase):
+  def __init__(self,mod,*args,**kwargs):
+    unittest.TestCase.__init__(self,*args,**kwargs)
     self.mod = mod
   def setUp(self):
     modeldir = os.path.join(sys.argv[1],"objects3d")
     self.models = set( (m.lower().replace('.3do','') for m in os.listdir(modeldir)) )
+    self.units = self.mod.getunits()
+    self.weapons = self.mod.getweapons()
 
   def test_unused(self):
     used = set()
     for _,u in self.units.items():
       used.add(u.objectname.lower())
 
-      if "featuredefs" in u:
+      try:
         for _,f in u.featuredefs.items():
           used.add(f.object.lower())
-      if "weapondefs" in u:
+      except AttributeError:
+        pass
+      try:
         for _,w in u.weapondefs.items():
           if "model" in w:
             used.add(w.model.lower())
+      except AttributeError:
+        pass
 
-    for _,w in weapons.items():
-      if "model" in w:
+    for _,w in self.weapons.items():
+      try:
         used.add(w.model.lower())
+      except AttributeError:
+        pass
     self.assertEqual(used,self.models )
 
 
@@ -220,7 +243,7 @@ if __name__ == '__main__':
   suite = AllUnits(mod,tests)
   
   #suite = unittest.TestSuite()
-  #suite.addTest( ModelsTests('test_unused') )
+  #suite.addTest( TestModel(mod,'test_unused') )
 
   unittest.TextTestRunner(verbosity=1).run(suite)
   print "done"

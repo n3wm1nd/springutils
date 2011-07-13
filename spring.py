@@ -2,6 +2,7 @@ import lupa
 
 import os
 import sys
+from Cheetah.Template import Template
 
 import UserDict
 
@@ -32,7 +33,14 @@ class Mod(object):
   def getunit(self,unitname):
     unitdir = os.path.join(self.dir,"units")
     with open( os.path.join(unitdir,unitname+".lua"),"r") as unitfile:
-      unitdata = self._lua.execute(unitfile.read().decode("latin1"))
+      try:
+        unitdata = self._lua.execute(unitfile.read().decode("latin1"))
+      except lupa._lupa.LuaSyntaxError,e:
+        e.message = unitname+":"+e.message
+        print e.__dict__
+        raise e.__class__(e.message)
+      if "".join(unitdata.keys()) != unitname:
+        raise Exception("unitname is not the filename")
       unit = Unit(unitname,mod=self)
       unit.__dict__.update(unitdata[unitname])
       return unit
@@ -68,7 +76,7 @@ class Mod(object):
     movedatafilename=os.path.join(self.dir,"gamedata/movedefs.lua")
     moveclasses = {}
     with open( movedatafilename,"r") as movedatafile:
-      movedatalist = self._lua.execute(movedatafile.read())
+      movedatalist = self._lua.execute(movedatafile.read().decode('latin1'))
       for n, movedata in movedatalist.items():
         moveclasses[movedata.name] = movedata
     return moveclasses 
@@ -77,7 +85,7 @@ class Unit(object):
   def __init__(self,unitname,mod=None):
     self.unitname=unitname
     if mod:
-      self.mod=mod
+      self._mod=mod
   def __repr__(self):
     return "Unit("+str(self.unitname)+")"
 
@@ -96,6 +104,43 @@ class Unit(object):
     
     return object.__getattribute__(self,name)
 
+
+  def save(self):
+    tmpl = Template(file="unit.tmpl")
+    tmpl.unitname = self.unitname
+    
+    categories = [
+        ("general",["name","description","side","category"]),
+        ("movement",["acceleration","maxVelocity","amphibious","maneuverleashlength","movementclass","turnrate"]),
+        ("build options",["buildoptions"]),
+        ("audio",["sounds"]),
+        ("weapons defs",["weapons"]),
+    ]
+
+    keys = filter(lambda k: not k.startswith("_"), sorted( self.__dict__.keys() ) )
+    keys.remove("featuredefs")
+    tmpl.featuredefs = self.featuredefs
+    keys.remove("weapondefs")
+    tmpl.weapondefs = self.weapondefs
+
+    keys.remove("unitname")
+
+    tmpl.categories = []
+    for cat,catkeys in categories:
+      catlist = {}
+      for k in catkeys:
+        if k.lower() in keys:
+          keys.remove(k.lower())
+          catlist[k] = self.__dict__[k.lower()]          
+      if len(catlist):
+        tmpl.categories.append( (cat,catlist) )
+    other = {}
+    for k in keys:
+      other[k] = self.__dict__[k]
+    tmpl.categories.append( ("other",other) )
+
+  
+    return tmpl
 class Ptr(object):
   data={}
   def __init__(self,initialdata={}):
