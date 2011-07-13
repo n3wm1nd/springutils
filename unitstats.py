@@ -22,7 +22,7 @@ writer.writerow( props )
 for uname,u in units.items():
   writer.writerow( 
       [ unicode( 
-          getattr(u,propname,'N/A')
+          getattr(u,propname,'NA')
            ).encode("utf-8") for propname in props 
       ]
 
