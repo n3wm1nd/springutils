@@ -1,5 +1,6 @@
 import spring
 import sys
+import csv
 
 mod = spring.Mod(sys.argv[1])
 
@@ -16,12 +17,14 @@ props = (
 'turnrate', 
 )
 
-print ",".join(props)
+writer = csv.writer(sys.stdout)
+writer.writerow( props )
 for uname,u in units.items():
-  print ",".join( 
-      ( unicode( 
+  writer.writerow( 
+      [ unicode( 
           getattr(u,propname,'N/A')
-           ) for propname in props )
+           ).encode("utf-8") for propname in props 
+      ]
 
-      ).encode('utf-8')
+      )
 
